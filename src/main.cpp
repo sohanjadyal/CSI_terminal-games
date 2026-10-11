@@ -15,13 +15,7 @@ int main() {
                   << "5. Quit\n"
                   << "Pick a game: ";
         int choice = 0;
-        if (!(std::cin >> choice)) {
-            std::cin.clear();
-            std::string discard;
-            if (!(std::cin >> discard)) return 0;
-            std::cout << "Please pick 1, 2, 3, 4 or 5.\n";
-            continue;
-        }
+        std::cin >> choice;
         switch (choice) {
             case 1: play2048(); break;
             case 2: playTicTacToe(); break;
