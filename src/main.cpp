@@ -1,24 +1,20 @@
 #include <iostream>
 #include <limits>
+#include <string>
 
-#include "blackjack.h"
-#include "dino.h"
-#include "game2048.h"
-#include "hangman.h"
-#include "snake.h"
-#include "tictactoe.h"
+#include "intro.h"
 
 int main() {
+    Borderland::initConsole();
+    const auto& trials = Borderland::getGameTrials();
+    Borderland::playIntro(trials);
+
+    int currentPage = 0;
+    const int quitOption = static_cast<int>(trials.size()) + 1;
+    const int totalPages = Borderland::getPageCount(trials.size());
+
     while (true) {
-        std::cout << "\n=== Terminal Games ===\n"
-                  << "1. 2048\n"
-                  << "2. Tic-tac-toe (vs computer)\n"
-                  << "3. Hangman\n"
-                  << "4. Snake\n"
-                  << "5. Dinosaur Run\n"
-                  << "6. Blackjack\n"
-                  << "7. Quit\n"
-                  << "Pick a game: ";
+        Borderland::printMenu(trials, currentPage);
         int choice = 0;
 
         if (!(std::cin >> choice)) {
@@ -30,18 +26,22 @@ int main() {
             std::cin.ignore(
                 std::numeric_limits<std::streamsize>::max(), '\n');
 
-            std::cout << "Please enter a valid number.\n";
+            Borderland::printError(trials.size());
             continue;
         }
-        switch (choice) {
-            case 1: play2048(); break;
-            case 2: playTicTacToe(); break;
-            case 3: playHangman(); break;
-            case 4: playSnake(); break;
-            case 5: playDino(); break;
-            case 6: playBlackjack(); break;
-            case 7: std::cout << "Bye!\n"; return 0;
-            default: std::cout << "Please pick 1, 2, 3, 4, 5, 6 or 7.\n";
+
+        if (choice == 0 && totalPages > 1) {
+            currentPage = (currentPage + 1) % totalPages;
+            continue;
+        }
+
+        if (choice >= 1 && choice <= static_cast<int>(trials.size())) {
+            trials[choice - 1].play();
+        } else if (choice == quitOption) {
+            Borderland::printExit();
+            return 0;
+        } else {
+            Borderland::printError(trials.size());
         }
     }
 }
