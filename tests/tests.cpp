@@ -453,6 +453,31 @@ static void testSnake() {
     selfGame.setDirection(SnakeDirection::Left);
     CHECK(!selfGame.step());
     CHECK(selfGame.isGameOver());
+
+    // Test arcade mode with multi-food and larger dimensions
+    SnakeGame arcadeGame(42, 60, 20, 5);
+    CHECK(arcadeGame.width() == 60);
+    CHECK(arcadeGame.height() == 20);
+    CHECK(arcadeGame.foods().size() == 5);
+    Point f = arcadeGame.foods().front();
+    arcadeGame.setBody({{f.x - 1, f.y}, {f.x - 2, f.y}, {f.x - 3, f.y}});
+    arcadeGame.setDirection(SnakeDirection::Right);
+    CHECK(arcadeGame.step());
+    CHECK(arcadeGame.score() == 10);
+    CHECK(arcadeGame.body().size() == 4);
+    CHECK(arcadeGame.foods().size() == 5);
+
+    // Test session high score persistence
+    setSnakeSessionHiScore(150);
+    CHECK(getSnakeSessionHiScore() == 150);
+
+    // Test arcade wrap-around with custom width/height
+    SnakeGame customWrap(42, 50, 15, 3);
+    customWrap.setBody({{48, 7}, {47, 7}, {46, 7}});
+    customWrap.setDirection(SnakeDirection::Right);
+    CHECK(customWrap.step());
+    CHECK(customWrap.body().front().x == 1);
+    CHECK(!customWrap.isGameOver());
 }
 
 int main() {
