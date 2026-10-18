@@ -1,11 +1,13 @@
 #include <algorithm>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 #include "blackjack.h"
 #include "dino.h"
 #include "game2048.h"
 #include "hangman.h"
+#include "intro.h"
 #include "snake.h"
 #include "tictactoe.h"
 
@@ -455,7 +457,132 @@ static void testSnake() {
     CHECK(selfGame.isGameOver());
 }
 
+static void testBorderland() {
+    const auto& trials = Borderland::getGameTrials();
+    CHECK(trials.size() >= 6);
+    // Suits matching Issue #34: 2048 is diamonds, tic-tac-toe hearts, hangman clubs, snake spades
+    CHECK(trials[0].id == 1 && trials[0].title == "2048" && trials[0].suit == "♦" && trials[0].trialType == "Logic");
+    CHECK(trials[1].id == 2 && trials[1].title == "TIC-TAC" && trials[1].suit == "♥" && trials[1].trialType == "Strategy");
+    CHECK(trials[2].id == 3 && trials[2].title == "HANGMAN" && trials[2].suit == "♣" && trials[2].trialType == "Words");
+    CHECK(trials[3].id == 4 && trials[3].title == "SNAKE" && trials[3].suit == "♠" && trials[3].trialType == "Reflexes");
+    CHECK(trials[4].id == 5 && trials[4].title == "DINO" && trials[4].displayName == "Dinosaur Run" && trials[4].suit == "♦");
+    CHECK(trials[5].id == 6 && trials[5].title == "BLACKJACK" && trials[5].displayName == "Blackjack" && trials[5].suit == "♥");
+    for (const auto& t : trials) {
+        CHECK(t.play != nullptr);
+    }
+}
+
+static void testPagination() {
+    // 1. Page count calculation tests
+    CHECK(Borderland::getPageCount(0) == 1);
+    CHECK(Borderland::getPageCount(4) == 1);
+    CHECK(Borderland::getPageCount(8) == 1);
+    CHECK(Borderland::getPageCount(9) == 2);
+    CHECK(Borderland::getPageCount(16) == 2);
+    CHECK(Borderland::getPageCount(17) == 3);
+
+    // 2. Single-page menu rendering should not show page toggle prompt and count Quit dynamically from registry
+    const auto& defaultTrials = Borderland::getGameTrials();
+    const int quitOption = static_cast<int>(defaultTrials.size()) + 1;
+    std::ostringstream defaultOut;
+    Borderland::printMenu(defaultTrials, 0, defaultOut);
+    std::string defaultStr = defaultOut.str();
+    CHECK(defaultStr.find("Enter 0 to toggle page") == std::string::npos);
+    CHECK(defaultStr.find("[" + std::to_string(quitOption) + "] ") != std::string::npos);
+    CHECK(defaultStr.find("Pick a trial card (1-" + std::to_string(quitOption) + "):") != std::string::npos);
+
+    // 3. Multi-page menu rendering (> 8 games) and dynamic single-page capacity (7 and 8 games)
+    std::vector<Borderland::GameTrial> multiTrials;
+    for (int i = 1; i <= 10; ++i) {
+        std::string num = (i < 10 ? "0" : "") + std::to_string(i);
+        multiTrials.push_back({
+            i,
+            "CRD" + num,
+            "Game " + num,
+            "♦",
+            "Logic",
+            "\033[38;2;255;82;102m",
+            [](){}
+        });
+    }
+
+    // Single-page compliance test for 7 games (Issue #41: Tetris as Option 7, Quit moved to Option 8)
+    std::vector<Borderland::GameTrial> sevenTrials(multiTrials.begin(), multiTrials.begin() + 7);
+    std::ostringstream page7Out;
+    Borderland::printMenu(sevenTrials, 0, page7Out);
+    std::string page7Str = page7Out.str();
+    CHECK(Borderland::getPageCount(7) == 1);
+    CHECK(page7Str.find("Enter 0 to toggle page") == std::string::npos);
+    CHECK(page7Str.find("[7] ") != std::string::npos);
+    CHECK(page7Str.find("[8] ") != std::string::npos); // Quit is option 8
+    CHECK(page7Str.find("Pick a trial card (1-8):") != std::string::npos);
+
+    // Single-page compliance test for 8 games (Issue #39: Space Invaders as Option 8, Quit moved to Option 9)
+    std::vector<Borderland::GameTrial> eightTrials(multiTrials.begin(), multiTrials.begin() + 8);
+    std::ostringstream page8Out;
+    Borderland::printMenu(eightTrials, 0, page8Out);
+    std::string page8Str = page8Out.str();
+    CHECK(Borderland::getPageCount(8) == 1);
+    CHECK(page8Str.find("Enter 0 to toggle page") == std::string::npos);
+    CHECK(page8Str.find("[8] ") != std::string::npos);
+    CHECK(page8Str.find("[9] ") != std::string::npos); // Quit is option 9
+    CHECK(page8Str.find("Pick a trial card (1-9):") != std::string::npos);
+
+    // Page 0 (Page 1 of 2): displays Page 1 of 2, cards CRD01..CRD08, but NOT CRD09 in card grid
+    std::ostringstream page0Out;
+    Borderland::printMenu(multiTrials, 0, page0Out);
+    std::string page0Str = page0Out.str();
+    CHECK(page0Str.find("[ Page 1 of 2 · Enter 0 to toggle page ]") != std::string::npos);
+    CHECK(page0Str.find("CRD01") != std::string::npos);
+    CHECK(page0Str.find("CRD08") != std::string::npos);
+    CHECK(page0Str.find("CRD09") == std::string::npos);
+    CHECK(page0Str.find("[11] ") != std::string::npos); // Quit Arena is option 11
+
+    // Page 1 (Page 2 of 2): displays Page 2 of 2, cards CRD09..CRD10, but NOT CRD01 in card grid
+    std::ostringstream page1Out;
+    Borderland::printMenu(multiTrials, 1, page1Out);
+    std::string page1Str = page1Out.str();
+    CHECK(page1Str.find("[ Page 2 of 2 · Enter 0 to toggle page ]") != std::string::npos);
+    CHECK(page1Str.find("CRD09") != std::string::npos);
+    CHECK(page1Str.find("CRD10") != std::string::npos);
+    CHECK(page1Str.find("CRD01") == std::string::npos);
+
+    // Page clamping for out-of-bound indices
+    std::ostringstream clampNegOut;
+    Borderland::printMenu(multiTrials, -5, clampNegOut);
+    CHECK(clampNegOut.str().find("[ Page 1 of 2") != std::string::npos);
+
+    std::ostringstream clampHighOut;
+    Borderland::printMenu(multiTrials, 99, clampHighOut);
+    CHECK(clampHighOut.str().find("[ Page 2 of 2") != std::string::npos);
+
+    // 4. Input error message formatting test
+    std::ostringstream errOut4;
+    Borderland::printError(4, errOut4);
+    CHECK(errOut4.str().find("Please pick 1, 2, 3, 4 or 5.") != std::string::npos);
+
+    std::ostringstream errOut5;
+    Borderland::printError(5, errOut5);
+    CHECK(errOut5.str().find("Please pick 1, 2, 3, 4, 5 or 6.") != std::string::npos);
+
+    std::ostringstream errOut6;
+    Borderland::printError(defaultTrials.size(), errOut6);
+    CHECK(errOut6.str().find(" or " + std::to_string(quitOption) + ".") != std::string::npos);
+
+    // Dynamic error message compliance for Issue #41 (7 games -> Quit 8)
+    std::ostringstream errOut7;
+    Borderland::printError(7, errOut7);
+    CHECK(errOut7.str().find("Please pick 1, 2, 3, 4, 5, 6, 7 or 8.") != std::string::npos);
+
+    // Dynamic error message compliance for Issue #39 (8 games -> Quit 9)
+    std::ostringstream errOut8;
+    Borderland::printError(8, errOut8);
+    CHECK(errOut8.str().find("Please pick 1, 2, 3, 4, 5, 6, 7, 8 or 9.") != std::string::npos);
+}
+
 int main() {
+    testBorderland();
+    testPagination();
     testTicTacToe();
     test2048();
     testHangman();

@@ -59,6 +59,7 @@ Blackjack
 - `src/main.cpp`: the menu
 - `src/game2048.*`, `src/tictactoe.*`, `src/hangman.*`, `src/snake.*`, `src/dino.*`, `src/blackjack.*`: the games
 - `tests/tests.cpp`: tests, using a small `CHECK` macro
+- `src/intro.*`: Borderland startup animation, scalable trial card rendering, and theme menu
 
 ## Contributing
 
