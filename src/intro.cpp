@@ -12,6 +12,7 @@
 #include "game2048.h"
 #include "hangman.h"
 #include "snake.h"
+#include "spaceinvaders.h"
 #include "tictactoe.h"
 
 #ifdef _WIN32
@@ -291,6 +292,7 @@ const std::vector<GameTrial>& getGameTrials() {
         {4, "SNAKE",     "Snake",        "♠", "Reflexes", CLR_CYAN, playSnake},
         {5, "DINO",      "Dinosaur Run", "♦", "Survival", CLR_RED,  playDino},
         {6, "BLACKJACK", "Blackjack",    "♥", "Tactics",  CLR_RED,  playBlackjack},
+        {7, "INVADERS",  "Space Invaders", "♠", "Defense",  CLR_CYAN, playSpaceInvaders},
     };
     return registry;
 }

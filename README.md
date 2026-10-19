@@ -55,12 +55,20 @@ Blackjack
 - A natural Blackjack pays 3:2; a regular win pays 1:1, and a tie returns the wager.
 - Press `q` at the wager prompt or after a round to return to the menu.
 
+Space Invaders (arrow keys or `a`/`d` to steer, Space or `w`/Up to shoot, `q` to quit)
+- Defend against marching waves of alien invaders across 3 distinct tiers (Crimson, Green, and Purple).
+- Use the 4 destructible bunkers for tactical cover; bunkers erode block-by-block when struck by player lasers or alien bombs.
+- Player cannon (`/-^-\`) can fire up to 2 active lasers (`:`) on screen.
+- Alien fleet shifts and descends whenever reaching the borders; movement speed accelerates as alien numbers diminish.
+- Clear all invaders to advance to the next level. The game ends if all lives are lost or invaders descend to bunker/cannon level.
+
 ## Code
 
 - `src/main.cpp`: the menu
 - `src/game2048.*`, `src/tictactoe.*`, `src/hangman.*`, `src/snake.*`, `src/dino.*`, `src/blackjack.*`: the games
 - `tests/tests.cpp`: tests, using a small `CHECK` macro
 - `src/intro.*`: Borderland startup animation, scalable trial card rendering, and theme menu
+- `src/spaceinvaders.*`: Space Invaders arcade game logic and renderer
 
 ## Contributing
 

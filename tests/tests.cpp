@@ -4,6 +4,7 @@
 #include <string>
 
 #include "blackjack.h"
+#include "spaceinvaders.h"
 #include "dino.h"
 #include "game2048.h"
 #include "hangman.h"
@@ -484,14 +485,15 @@ static void testSnake() {
 
 static void testBorderland() {
     const auto& trials = Borderland::getGameTrials();
-    CHECK(trials.size() >= 6);
-    // Suits matching Issue #34: 2048 is diamonds, tic-tac-toe hearts, hangman clubs, snake spades
+    CHECK(trials.size() >= 7);
+    // Suits matching Issue #34 & #39: 2048 is diamonds, tic-tac-toe hearts, hangman clubs, snake spades, dino diamonds, blackjack hearts, space invaders spades
     CHECK(trials[0].id == 1 && trials[0].title == "2048" && trials[0].suit == "♦" && trials[0].trialType == "Logic");
     CHECK(trials[1].id == 2 && trials[1].title == "TIC-TAC" && trials[1].suit == "♥" && trials[1].trialType == "Strategy");
     CHECK(trials[2].id == 3 && trials[2].title == "HANGMAN" && trials[2].suit == "♣" && trials[2].trialType == "Words");
     CHECK(trials[3].id == 4 && trials[3].title == "SNAKE" && trials[3].suit == "♠" && trials[3].trialType == "Reflexes");
     CHECK(trials[4].id == 5 && trials[4].title == "DINO" && trials[4].displayName == "Dinosaur Run" && trials[4].suit == "♦");
     CHECK(trials[5].id == 6 && trials[5].title == "BLACKJACK" && trials[5].displayName == "Blackjack" && trials[5].suit == "♥");
+    CHECK(trials[6].id == 7 && trials[6].title == "INVADERS" && trials[6].displayName == "Space Invaders" && trials[6].suit == "♠");
     for (const auto& t : trials) {
         CHECK(t.play != nullptr);
     }
@@ -605,9 +607,118 @@ static void testPagination() {
     CHECK(errOut8.str().find("Please pick 1, 2, 3, 4, 5, 6, 7, 8 or 9.") != std::string::npos);
 }
 
+
+static void testSpaceInvaders() {
+    using namespace SpaceInvaders;
+    SpaceInvadersGame game(42);
+
+    // 1. Initial State
+    CHECK(game.aliveAlienCount() == 50);
+    CHECK(game.score() == 0);
+    CHECK(game.lives() == 3);
+    CHECK(game.level() == 1);
+    CHECK(!game.isGameOver());
+
+    // 2. Cannon movement clamping
+    int initialX = game.cannonX();
+    game.movePlayer(-100);
+    CHECK(game.cannonX() == 0);
+    game.movePlayer(100);
+    CHECK(game.cannonX() == WIDTH - CANNON_WIDTH);
+    game.setCannonXForTesting(initialX);
+
+    // 3. Laser firing limit (max 2 active lasers)
+    CHECK(game.fireLaser());
+    CHECK(game.fireLaser());
+    CHECK(!game.fireLaser()); // 3rd shot rejected
+    CHECK(game.playerLasers().size() == 2);
+
+    // 4. Laser collision with Aliens and scoring
+    // Top tier alien (row 0, col 0) -> +30 pts
+    SpaceInvadersGame testGame(99);
+    int topAlienX = testGame.alienFleetX();
+    int topAlienY = testGame.alienFleetY();
+    testGame.addLaserForTesting(topAlienX + 1, topAlienY + 1); // Laser just below alien
+    testGame.tick(); // Laser moves to topAlienY and strikes alien
+    CHECK(!testGame.aliens()[0].alive);
+    CHECK(testGame.score() == 30);
+    CHECK(testGame.aliveAlienCount() == 49);
+
+    // Mid tier alien (row 1, col 0) -> +20 pts
+    testGame.addLaserForTesting(testGame.alienFleetX() + 1, testGame.alienFleetY() + 1 + 1);
+    testGame.tick();
+    CHECK(!testGame.aliens()[10].alive);
+    CHECK(testGame.score() == 50);
+
+    // Bottom tier alien (row 3, col 0) -> +10 pts
+    testGame.addLaserForTesting(testGame.alienFleetX() + 1, testGame.alienFleetY() + 3 + 1);
+    testGame.tick();
+    CHECK(!testGame.aliens()[30].alive);
+    CHECK(testGame.score() == 60);
+
+    // 5. Destructible Bunkers (Laser from below damages bunker)
+    SpaceInvadersGame bunkerGame(101);
+    CHECK(bunkerGame.isBunkerBlockSolid(0, 3, 0)); // Bottom-left block of bunker 0
+    bunkerGame.addLaserForTesting(6, 19); // Directly below bunker 0, col 0
+    bunkerGame.tick(); // Laser hits row 18 (local row 3)
+    CHECK(!bunkerGame.isBunkerBlockSolid(0, 3, 0)); // Eroded
+    CHECK(bunkerGame.playerLasers().empty()); // Laser absorbed
+
+    // 6. Destructible Bunkers (Alien bomb from above damages bunker)
+    CHECK(bunkerGame.isBunkerBlockSolid(0, 0, 2)); // Top block of bunker 0
+    bunkerGame.addBombForTesting(6 + 2, 14); // Directly above bunker 0 top
+    bunkerGame.tick(); // Bomb moves to row 15 (local row 0)
+    CHECK(!bunkerGame.isBunkerBlockSolid(0, 0, 2)); // Eroded
+    CHECK(bunkerGame.alienBombs().empty()); // Bomb absorbed
+
+    // 7. Alien bomb hitting player cannon
+    SpaceInvadersGame hitGame(102);
+    int cX = hitGame.cannonX();
+    hitGame.addBombForTesting(cX + 2, 19); // 1 row above player cannon
+    hitGame.tick(); // Bomb strikes cannon at row 20
+    CHECK(hitGame.lives() == 2);
+    CHECK(hitGame.alienBombs().empty());
+    hitGame.setLivesForTesting(1);
+    hitGame.addBombForTesting(cX + 2, 19);
+    hitGame.tick();
+    CHECK(hitGame.lives() == 0);
+    CHECK(hitGame.isGameOver());
+
+    // 8. Fleet wall bounce and descent
+    SpaceInvadersGame wallGame(103);
+    wallGame.setFleetPosForTesting(WIDTH - 10 * 4, 2, 1);
+    for (int t = 0; t < 25; ++t) wallGame.tick();
+    CHECK(wallGame.alienFleetY() >= 3);
+    CHECK(wallGame.alienDirection() == -1);
+
+    // 9. Invasion loss condition (alien reaches bunker level)
+    SpaceInvadersGame invasionGame(104);
+    invasionGame.setFleetPosForTesting(10, 11, 1); // Row 4 (lowest row) will be at 11+4=15
+    for (int t = 0; t < 25; ++t) invasionGame.tick();
+    CHECK(invasionGame.isGameOver());
+
+    // 10. Wave clear and level progression
+    SpaceInvadersGame waveGame(105);
+    for (int i = 0; i < 50; ++i) {
+        waveGame.killAlienForTesting(i);
+    }
+    CHECK(waveGame.aliveAlienCount() == 0);
+    waveGame.tick();
+    CHECK(waveGame.level() == 2);
+    CHECK(waveGame.aliveAlienCount() == 50);
+
+    // 11. Render output validity
+    std::string rendered = game.render();
+    CHECK(!rendered.empty());
+    CHECK(rendered.find("Level: 01") != std::string::npos);
+    CHECK(rendered.find("Score: 0000000") != std::string::npos);
+    CHECK(rendered.find("/-^-\\") != std::string::npos);
+}
+
 int main() {
     testBorderland();
     testPagination();
+    testSpaceInvaders();
     testTicTacToe();
     test2048();
     testHangman();

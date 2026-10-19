@@ -10,6 +10,7 @@ target_include_directories(games_lib PUBLIC src)
 add_executable(games src/main.cpp)
 target_link_libraries(games games_lib)
 target_sources(games_lib PRIVATE src/intro.cpp)
+target_sources(games_lib PRIVATE src/spaceinvaders.cpp)
 
 add_executable(tests tests/tests.cpp)
 target_link_libraries(tests games_lib)
