@@ -9,10 +9,23 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#ifndef _WIN32
 #include <sys/select.h>
 #include <termios.h>
 #include <thread>
 #include <unistd.h>
+#else
+#include <conio.h>
+#include <io.h>
+#include <thread>
+inline int isatty(int fd) { return _isatty(fd); }
+#ifndef STDIN_FILENO
+#define STDIN_FILENO 0
+#endif
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+#endif
 
 namespace {
 
@@ -90,6 +103,7 @@ public:
     MouseTerminal() = default;
 
     bool enable(bool alternateScreen = true) {
+#ifndef _WIN32
         if (tcgetattr(STDIN_FILENO, &original_) != 0) {
             std::cerr << "Could not read terminal settings for chip selection.\n";
             return false;
@@ -102,6 +116,7 @@ public:
             std::cerr << "Could not enable mouse chip selection.\n";
             return false;
         }
+#endif
         active_ = true;
         alternateScreen_ = alternateScreen;
         if (alternateScreen_) std::cout << "\033[?1049h";
@@ -115,14 +130,18 @@ public:
         std::cout << "\033[?1006l\033[?1003l\033[?1000l\033[?25h";
         if (alternateScreen_) std::cout << "\033[?1049l";
         std::cout.flush();
+#ifndef _WIN32
         tcsetattr(STDIN_FILENO, TCSANOW, &original_);
+#endif
     }
 
     MouseTerminal(const MouseTerminal&) = delete;
     MouseTerminal& operator=(const MouseTerminal&) = delete;
 
 private:
+#ifndef _WIN32
     termios original_{};
+#endif
     bool active_ = false;
     bool alternateScreen_ = false;
 };
@@ -139,6 +158,7 @@ struct InputEvent {
 };
 
 bool waitForInput(int milliseconds) {
+#ifndef _WIN32
     fd_set input;
     FD_ZERO(&input);
     FD_SET(STDIN_FILENO, &input);
@@ -151,10 +171,18 @@ bool waitForInput(int milliseconds) {
         return false;
     }
     return ready > 0;
+#else
+    for (int i = 0; i < milliseconds / 10; ++i) {
+        if (_kbhit()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return _kbhit() != 0;
+#endif
 }
 
 InputEvent readTerminalEvent() {
     InputEvent event;
+#ifndef _WIN32
     if (!waitForInput(100)) {
         event.type = InputEvent::Type::Timeout;
         return event;
@@ -196,6 +224,16 @@ InputEvent readTerminalEvent() {
     }
     event.type = InputEvent::Type::Timeout;
     return event;
+#else
+    if (_kbhit()) {
+        int ch = _getch();
+        event.type = InputEvent::Type::Key;
+        event.key = static_cast<char>(ch);
+        return event;
+    }
+    event.type = InputEvent::Type::Timeout;
+    return event;
+#endif
 }
 
 std::array<std::string, 7> cardBack(bool color) {

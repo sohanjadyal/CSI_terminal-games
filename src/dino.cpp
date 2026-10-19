@@ -7,10 +7,14 @@
 #include <iostream>
 #include <limits>
 #include <string>
+#ifndef _WIN32
 #include <sys/ioctl.h>
 #include <sys/select.h>
 #include <termios.h>
 #include <unistd.h>
+#else
+#include <conio.h>
+#endif
 
 using dino::Box;
 
@@ -476,6 +480,7 @@ namespace {
 class TerminalMode {
 public:
     bool enable() {
+#ifndef _WIN32
         if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO)) {
             std::cerr << "Dinosaur Run needs an interactive terminal.\n";
             return false;
@@ -493,6 +498,7 @@ public:
             std::cerr << "Could not enable real-time keyboard input.\n";
             return false;
         }
+#endif
         active_ = true;
         // Alternate screen, hide cursor, no line wrapping.
         std::cout << "\x1b[?1049h\x1b[?25l\x1b[?7l\x1b[2J";
@@ -502,8 +508,10 @@ public:
 
     ~TerminalMode() {
         if (active_) {
+#ifndef _WIN32
             tcflush(STDIN_FILENO, TCIFLUSH);
             tcsetattr(STDIN_FILENO, TCSANOW, &original_);
+#endif
             std::cout << "\x1b[0m\x1b[?7h\x1b[?25h\x1b[?1049l";
             std::cout.flush();
         }
@@ -514,7 +522,9 @@ public:
     TerminalMode& operator=(const TerminalMode&) = delete;
 
 private:
+#ifndef _WIN32
     termios original_{};
+#endif
     bool active_ = false;
 };
 
@@ -527,6 +537,7 @@ struct Keys {
 
 // Reads whatever bytes are waiting (up to `timeout`) and turns them into keys.
 bool readKeys(std::chrono::microseconds timeout, Keys& keys) {
+#ifndef _WIN32
     fd_set input;
     FD_ZERO(&input);
     FD_SET(STDIN_FILENO, &input);
@@ -567,6 +578,27 @@ bool readKeys(std::chrono::microseconds timeout, Keys& keys) {
         }
     }
     return true;
+#else
+    (void)timeout;
+    while (_kbhit()) {
+        int ch = _getch();
+        if (ch == 0 || ch == 224) {
+            int arrow = _getch();
+            if (arrow == 72) keys.jump = true;
+            else if (arrow == 80) keys.duck = true;
+        } else {
+            char c = static_cast<char>(ch);
+            switch (c) {
+                case ' ': case 'w': case 'W': case 'j': case 'J': keys.jump = true; break;
+                case 's': case 'S': keys.duck = true; break;
+                case 'r': case 'R': case '\r': case '\n': keys.restart = true; break;
+                case 'q': case 'Q': case 3: keys.quit = true; break;
+                default: break;
+            }
+        }
+    }
+    return true;
+#endif
 }
 
 // ---------------------------------------------------------------------------
@@ -762,14 +794,16 @@ std::string render(const DinoGame& game, int termCols, int termRows) {
 }
 
 void terminalSize(int& cols, int& rows) {
+#ifndef _WIN32
     winsize ws{};
     if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_col > 0 && ws.ws_row > 0) {
         cols = ws.ws_col;
         rows = ws.ws_row;
-    } else {
-        cols = 100;
-        rows = 24;
+        return;
     }
+#endif
+    cols = 100;
+    rows = 24;
 }
 
 int g_highScore = 0;  // best score this session, kept across visits to the menu
