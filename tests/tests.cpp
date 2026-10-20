@@ -132,6 +132,97 @@ static void test2048() {
 
     game.setGrid({Row{2, 4, 2, 4}, Row{4, 2, 4, 2}, Row{2, 4, 2, 4}, Row{4, 2, 4, 2}});
     CHECK(!game.canMove());
+    CHECK(game.maxTile() == 4);
+
+    // Test merging into 2048 triggers hasWon() and updates maxTile() and score
+    Game2048 winGame(42);
+    winGame.setGrid({Row{1024, 1024, 0, 0}, Row{0, 0, 0, 0}, Row{0, 0, 0, 0}, Row{0, 0, 0, 0}});
+    CHECK(!winGame.hasWon());
+    CHECK(winGame.maxTile() == 1024);
+    CHECK(winGame.move(Direction::Left));
+    CHECK(winGame.grid()[0][0] == 2048);
+    CHECK(winGame.hasWon());
+    CHECK(winGame.maxTile() == 2048);
+    CHECK(winGame.score() == 2048);
+
+    // Multi-row merge moving Down with scoring verification
+    Game2048 downGame(42);
+    downGame.setGrid({
+        Row{2, 4, 8, 16},
+        Row{2, 4, 8, 16},
+        Row{0, 0, 0, 0},
+        Row{0, 0, 0, 0}
+    });
+    CHECK(downGame.move(Direction::Down));
+    CHECK(downGame.grid()[3][0] == 4);
+    CHECK(downGame.grid()[3][1] == 8);
+    CHECK(downGame.grid()[3][2] == 16);
+    CHECK(downGame.grid()[3][3] == 32);
+    CHECK(downGame.score() == 60);  // 4 + 8 + 16 + 32
+    CHECK(downGame.maxTile() == 32);
+
+    // Multi-row merge moving Up with scoring verification
+    Game2048 upGame(42);
+    upGame.setGrid({
+        Row{0, 0, 0, 0},
+        Row{0, 0, 0, 0},
+        Row{4, 8, 16, 32},
+        Row{4, 8, 16, 32}
+    });
+    CHECK(upGame.move(Direction::Up));
+    CHECK(upGame.grid()[0][0] == 8);
+    CHECK(upGame.grid()[0][1] == 16);
+    CHECK(upGame.grid()[0][2] == 32);
+    CHECK(upGame.grid()[0][3] == 64);
+    CHECK(upGame.score() == 120);  // 8 + 16 + 32 + 64
+    CHECK(upGame.maxTile() == 64);
+
+    // Full board with adjacent matching horizontal tiles can still move
+    Game2048 almostFullH(42);
+    almostFullH.setGrid({
+        Row{2, 2, 4, 8},
+        Row{4, 8, 16, 32},
+        Row{8, 16, 32, 64},
+        Row{16, 32, 64, 128}
+    });
+    CHECK(almostFullH.canMove());
+
+    // Full board with adjacent matching vertical tiles can still move
+    Game2048 almostFullV(42);
+    almostFullV.setGrid({
+        Row{2, 4, 8, 16},
+        Row{2, 8, 16, 32},
+        Row{8, 16, 32, 64},
+        Row{16, 32, 64, 128}
+    });
+    CHECK(almostFullV.canMove());
+
+    // Test board reset restores clean initial game state (2 tiles, score 0, no undo)
+    Game2048 resetGame(42);
+    resetGame.setGrid({Row{1024, 512, 256, 128}, Row{64, 32, 16, 8}, Row{4, 2, 0, 0}, Row{0, 0, 0, 0}});
+    CHECK(resetGame.maxTile() == 1024);
+    resetGame.reset();
+    CHECK(resetGame.score() == 0);
+    CHECK(!resetGame.canUndo());
+    int nonZeroTiles = 0;
+    for (const auto& r : resetGame.grid()) {
+        for (int v : r) {
+            if (v != 0) {
+                nonZeroTiles++;
+                CHECK(v == 2 || v == 4);
+            }
+        }
+    }
+    CHECK(nonZeroTiles == 2);
+    CHECK(resetGame.maxTile() <= 4);
+    CHECK(!resetGame.hasWon());
+    CHECK(resetGame.canMove());
+
+    // Session persistent statistics accessors
+    set2048SessionHiScore(2048);
+    CHECK(get2048SessionHiScore() == 2048);
+    set2048SessionMaxTile(1024);
+    CHECK(get2048SessionMaxTile() == 1024);
 }
 
 static void testHangman() {

@@ -21,11 +21,14 @@ public:
     const std::array<Row, 4>& grid() const { return grid_; }
     void setGrid(const std::array<Row, 4>& grid) { grid_ = grid; }
     void print() const;
+    int maxTile() const;
+    bool canUndo() const { return canUndo_; }
+    void reset();
 
 private:
     struct State {
-        std::array<Row, 4> grid;
-        int score;
+        std::array<Row, 4> grid{};
+        int score = 0;
         std::mt19937 rng;
     };
 
@@ -34,8 +37,13 @@ private:
     std::array<Row, 4> grid_{};
     int score_ = 0;
     std::mt19937 rng_;
-    State previousState_{};
+    State previousState_;
     bool canUndo_ = false;
 };
+
+int get2048SessionHiScore();
+void set2048SessionHiScore(int score);
+int get2048SessionMaxTile();
+void set2048SessionMaxTile(int tile);
 
 void play2048();
