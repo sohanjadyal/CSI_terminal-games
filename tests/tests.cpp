@@ -67,6 +67,63 @@ static void testTicTacToe() {
     gamesPlayed = 0;
     CHECK(computerNeverLoses(board("         ")));  // X moves first, every line of play
     CHECK(gamesPlayed > 0);                          // check that atleast 1 game is played and test done
+
+    // Real behavior: Scoreboard tracking across matches
+    resetTicTacToeScores();
+    recordTicTacToeResult('X');
+    recordTicTacToeResult('X');
+    CHECK(getTicTacToePlayerWins() == 2);
+    CHECK(getTicTacToeAiWins() == 0);
+    CHECK(getTicTacToeDraws() == 0);
+
+    recordTicTacToeResult('O');
+    CHECK(getTicTacToePlayerWins() == 2);
+    CHECK(getTicTacToeAiWins() == 1);
+    CHECK(getTicTacToeDraws() == 0);
+
+    recordTicTacToeResult(' ');
+    CHECK(getTicTacToePlayerWins() == 2);
+    CHECK(getTicTacToeAiWins() == 1);
+    CHECK(getTicTacToeDraws() == 1);
+
+    resetTicTacToeScores();
+    CHECK(getTicTacToePlayerWins() == 0);
+    CHECK(getTicTacToeAiWins() == 0);
+    CHECK(getTicTacToeDraws() == 0);
+
+    // Real behavior: Winning line 3-in-a-row index calculation
+    CHECK((getWinningLine(board("XXX      ")) == std::array<int, 3>{0, 1, 2}));
+    CHECK((getWinningLine(board("   XXX   ")) == std::array<int, 3>{3, 4, 5}));
+    CHECK((getWinningLine(board("      XXX")) == std::array<int, 3>{6, 7, 8}));
+    CHECK((getWinningLine(board("O  O  O  ")) == std::array<int, 3>{0, 3, 6}));
+    CHECK((getWinningLine(board(" O  O  O ")) == std::array<int, 3>{1, 4, 7}));
+    CHECK((getWinningLine(board("  O  O  O")) == std::array<int, 3>{2, 5, 8}));
+    CHECK((getWinningLine(board("X   X   X")) == std::array<int, 3>{0, 4, 8}));
+    CHECK((getWinningLine(board("  X X X  ")) == std::array<int, 3>{2, 4, 6}));
+    CHECK((getWinningLine(board("XOXOXOOXO")) == std::array<int, 3>{-1, -1, -1}));
+    CHECK((getWinningLine(board("         ")) == std::array<int, 3>{-1, -1, -1}));
+
+    // Real behavior: Board full and partial detection
+    CHECK(isFull(board("XOXOXOOXO")));
+    CHECK(!isFull(board("XOXOXOOX ")));
+    CHECK(!isFull(board("         ")));
+
+    // Real behavior: State encoding (base-3)
+    CHECK(state(board("         ")) == 0);
+    CHECK(state(board("O        ")) == 1);
+    CHECK(state(board("X        ")) == 2);
+    CHECK(state(board(" O       ")) == 3);
+    CHECK(state(board(" X       ")) == 6);
+
+    // Real behavior: Minimax win vs block prioritization
+    resetMemo();
+    CHECK(computerMove(board("XX OO    "), 'X', 'O') == 2);  // win for X
+    resetMemo();
+    CHECK(computerMove(board("OO XX    "), 'O', 'X') == 2);  // win for O
+    resetMemo();
+    CHECK(computerMove(board("XX  O    "), 'O', 'X') == 2);  // block for O
+    resetMemo();
+    CHECK(computerMove(board("OO  X    "), 'X', 'O') == 2);  // block for X
 }
 
 static void test2048() {
